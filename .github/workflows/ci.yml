@@ -1,0 +1,55 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  lint-and-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: app/requirements.txt
+
+      - name: Install dependencies (without heavy ML packages)
+        working-directory: app
+        run: |
+          python -m pip install --upgrade pip
+          grep -vE "^(torch|openai-whisper)" requirements.txt > ci-requirements.txt
+          pip install -r ci-requirements.txt
+
+      - name: Syntax check all Python files
+        working-directory: app
+        run: python -m compileall -q . -x "venv|__pycache__"
+
+      - name: Smoke test API (mock heavy deps)
+        working-directory: app
+        env:
+          DB_PATH: /tmp/ci_test.db
+          OPENAI_API_KEY: dummy-key-for-ci
+        run: |
+          python - <<'EOF'
+          import sys, os, types, unittest.mock as mock
+          sys.path.insert(0, os.getcwd())
+          sys.modules['whisper'] = mock.MagicMock()
+          sys.modules['torch'] = mock.MagicMock()
+          sys.modules['torch'].cuda.is_available.return_value = False
+
+          from server import create_app
+          client = create_app().test_client()
+
+          r = client.get('/api/positions');              assert r.status_code == 200
+          r = client.post('/api/positions', json={
+              'name':'CI','requirements':'r','responsibilities':'d',
+              'quantity':1,'status':1,'recruiter':'ci'}); assert r.status_code == 200
+          r = client.get('/api/positions');              assert len(r.get_json()) == 1
+          print('CI smoke tests passed')
+          EOF
