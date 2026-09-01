@@ -14,6 +14,7 @@ from flask import Blueprint, jsonify, request, send_file
 from config import config
 from constants import InterviewStatus
 from database import get_db
+from security import admin_required, get_client_ip, rate_limiter
 from services.asr import transcribe_audio
 
 interviews_bp = Blueprint("interviews", __name__)
@@ -27,6 +28,7 @@ def _generate_token(length: int = None) -> str:
 # ==================== 管理端 ====================
 
 @interviews_bp.route("/api/interviews", methods=["GET"])
+@admin_required
 def get_interviews():
     conn = get_db(row_factory=True)
     rows = [dict(r) for r in conn.execute(
@@ -37,6 +39,7 @@ def get_interviews():
 
 
 @interviews_bp.route("/api/interviews", methods=["POST"])
+@admin_required
 def create_interview():
     data = request.json or {}
     for key in ("candidate_id", "interviewer", "start_time", "status", "is_passed"):
@@ -57,6 +60,7 @@ def create_interview():
 
 
 @interviews_bp.route("/api/interviews/<int:interview_id>", methods=["PUT"])
+@admin_required
 def update_interview(interview_id):
     data = request.json or {}
     token = _generate_token()
@@ -73,6 +77,7 @@ def update_interview(interview_id):
 
 
 @interviews_bp.route("/api/interviews/<int:interview_id>/report", methods=["GET"])
+@admin_required
 def download_interview_report(interview_id):
     conn = get_db(row_factory=True)
     row = conn.execute(
@@ -94,6 +99,7 @@ def download_interview_report(interview_id):
 
 
 @interviews_bp.route("/api/interviews/<int:interview_id>", methods=["DELETE"])
+@admin_required
 def delete_interview(interview_id):
     """删除面试及其关联问题（含音频/报告 BLOB，避免残留孤儿数据）"""
     conn = get_db()
@@ -171,19 +177,24 @@ def get_next_question(token):
 
     if current_question_id == 0:
         row = conn.execute(
-            "SELECT id, question AS text FROM interview_questions WHERE interview_id = ? ORDER BY id ASC LIMIT 1",
+            """SELECT id, question AS text, dimension, difficulty, question_type
+               FROM interview_questions WHERE interview_id = ? ORDER BY id ASC LIMIT 1""",
             (interview["id"],),
         ).fetchone()
     else:
         row = conn.execute(
-            "SELECT id, question AS text FROM interview_questions WHERE interview_id = ? AND id > ? ORDER BY id ASC LIMIT 1",
+            """SELECT id, question AS text, dimension, difficulty, question_type
+               FROM interview_questions WHERE interview_id = ? AND id > ? ORDER BY id ASC LIMIT 1""",
             (interview["id"], current_question_id),
         ).fetchone()
     conn.close()
 
     if not row:
         return jsonify({"id": 0, "text": "面试已完成"})
-    return jsonify(dict(row))
+    data = dict(row)
+    # dimension 为空时给默认值（兼容 v1 数据）
+    data.setdefault("dimension", "综合")
+    return jsonify(data)
 
 
 @interviews_bp.route("/api/interview/<token>/submit_answer", methods=["POST"])
@@ -199,6 +210,11 @@ def submit_answer(token):
     if early is not None:
         conn.close()
         return early
+
+    # 限流：每面试每分钟最多 6 次提交（正常节奏足够，防脚本灌音频）
+    if not rate_limiter.check("submit_answer", token, limit=6, window_seconds=60):
+        conn.close()
+        return jsonify({"error": "提交过于频繁，请稍候再试"}), 429
 
     question_id = request.form.get("question_id")
     audio_answer = request.files.get("audio_answer")
@@ -221,7 +237,7 @@ def submit_answer(token):
     )
 
     next_question = conn.execute(
-        """SELECT id, question AS text FROM interview_questions
+        """SELECT id, question, dimension, difficulty, question_type FROM interview_questions
            WHERE interview_id = ? AND id > ? ORDER BY id ASC LIMIT 1""",
         (interview["id"], question_id),
     ).fetchone()
@@ -249,7 +265,13 @@ def submit_answer(token):
         result = {
             "status": "success",
             "message": "答案已提交",
-            "next_question": {"id": next_question[0], "text": next_question[1]},
+            "next_question": {
+                "id": next_question[0],
+                "text": next_question[1],
+                "dimension": next_question[2] or "综合",
+                "difficulty": next_question[3] or "medium",
+                "question_type": next_question[4] or "technical",
+            },
         }
 
     conn.commit()

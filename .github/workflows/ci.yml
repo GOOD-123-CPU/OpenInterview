@@ -7,7 +7,7 @@ on:
     branches: [main, master]
 
 jobs:
-  lint-and-smoke:
+  test:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -30,26 +30,9 @@ jobs:
         working-directory: app
         run: python -m compileall -q . -x "venv|__pycache__"
 
-      - name: Smoke test API (mock heavy deps)
+      - name: Run pytest suite (mock heavy deps)
         working-directory: app
         env:
-          DB_PATH: /tmp/ci_test.db
+          ADMIN_PASSWORD: test-admin-pw
           OPENAI_API_KEY: dummy-key-for-ci
-        run: |
-          python - <<'EOF'
-          import sys, os, types, unittest.mock as mock
-          sys.path.insert(0, os.getcwd())
-          sys.modules['whisper'] = mock.MagicMock()
-          sys.modules['torch'] = mock.MagicMock()
-          sys.modules['torch'].cuda.is_available.return_value = False
-
-          from server import create_app
-          client = create_app().test_client()
-
-          r = client.get('/api/positions');              assert r.status_code == 200
-          r = client.post('/api/positions', json={
-              'name':'CI','requirements':'r','responsibilities':'d',
-              'quantity':1,'status':1,'recruiter':'ci'}); assert r.status_code == 200
-          r = client.get('/api/positions');              assert len(r.get_json()) == 1
-          print('CI smoke tests passed')
-          EOF
+        run: pytest tests/ -v

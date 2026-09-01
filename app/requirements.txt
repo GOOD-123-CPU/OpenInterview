@@ -1,3 +1,4 @@
+# ===== 核心依赖 =====
 schedule==1.2.2
 openai==1.75.0
 PyPDF2==3.0.1
@@ -6,5 +7,11 @@ weasyprint==65.1
 Flask==3.1.0
 flask-cors==5.0.1
 python-dotenv==1.1.0
+
+# ===== 语音识别（重依赖，按需安装）=====
+# GPU 环境请先参照 https://pytorch.org 安装匹配 CUDA 的 torch
 torch==2.7.0
 openai-whisper==20240930
+
+# ===== 测试 =====
+pytest>=8.0

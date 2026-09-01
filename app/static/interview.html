@@ -3,199 +3,167 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Web语音面试系统</title>
-    <!-- Bootstrap CSS -->
+    <title>在线面试 · OpenInterview</title>
     <link href="css/bootstrap.min.css" rel="stylesheet">
-    <!-- Vue 3 -->
     <script src="js/vue.global.prod.js"></script>
-    <!-- Axios for HTTP requests -->
     <script src="js/axios.min.js"></script>
-    <!-- SweetAlert2 -->
-    <script src="js/sweetalert2.js"></script>
     <style>
-        .start-btn {
-            font-size: 1.5rem;
-            padding: 1rem 2rem;
+        :root {
+            --bg: #f4f6fa; --card: #ffffff; --text: #1c2333; --muted: #6b7280;
+            --primary: #2f6bff; --border: #e5e8ef; --rec: #e5484d; --ok: #16a34a;
         }
-        .interview-container {
-            min-height: 80vh;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
+        @media (prefers-color-scheme: dark) {
+            :root { --bg: #12141c; --card: #1c1f2b; --text: #e8eaf0; --muted: #9aa1b0;
+                    --primary: #5b8cff; --border: #2a2e3d; }
         }
-        .progress-indicator {
-            margin-bottom: 2rem;
+        body { background: var(--bg); color: var(--text); min-height: 100vh;
+               font-family: 'PingFang SC','Microsoft YaHei',system-ui,sans-serif; }
+        .interview-container { min-height: 88vh; display: flex; flex-direction: column; justify-content: center; }
+        .card { background: var(--card); border: 1px solid var(--border); color: var(--text); border-radius: 18px; }
+        .card-header, .card-footer { background: transparent !important; border-color: var(--border) !important; color: var(--muted); }
+        .progress { height: 8px; border-radius: 999px; background: var(--border); }
+        .progress-bar { background: var(--primary); border-radius: 999px; transition: width .4s ease; }
+        .chip { display: inline-flex; align-items: center; gap: 5px; font-size: 12px;
+                border: 1px solid var(--border); border-radius: 999px; padding: 4px 12px; color: var(--muted); }
+        .chip.dim { color: var(--primary); border-color: var(--primary); }
+        .chip.easy { color: var(--ok); } .chip.medium { color: #d97706; } .chip.hard { color: var(--rec); }
+        .q-text { font-size: 21px; font-weight: 600; line-height: 1.6; margin: 18px 0 8px; }
+        .btn-record { font-size: 16px; padding: 13px 40px; border-radius: 999px; border: none; }
+        .btn-start { background: var(--primary); color: #fff; }
+        .btn-stop { background: var(--rec); color: #fff; animation: pulse 1.6s infinite; }
+        .btn-retry { background: transparent; color: var(--muted); border: 1px dashed var(--border); font-size: 13px; padding: 8px 20px; border-radius: 999px; }
+        @keyframes pulse { 0%,100% { box-shadow: 0 0 0 0 rgba(229,72,77,.4);} 50% { box-shadow: 0 0 0 12px rgba(229,72,77,0);} }
+        /* 录音波形 */
+        .wave { display: flex; align-items: center; justify-content: center; gap: 4px; height: 36px; }
+        .wave i { width: 4px; border-radius: 2px; background: var(--rec); height: 8px; }
+        @media (prefers-reduced-motion: no-preference) {
+            .wave i { animation: bounce 1s ease-in-out infinite; }
+            .wave i:nth-child(2) { animation-delay: .12s; } .wave i:nth-child(3) { animation-delay: .24s; }
+            .wave i:nth-child(4) { animation-delay: .36s; } .wave i:nth-child(5) { animation-delay: .48s; }
+            .wave i:nth-child(6) { animation-delay: .60s; } .wave i:nth-child(7) { animation-delay: .72s; }
+            @keyframes bounce { 0%,100% { height: 8px; } 50% { height: 30px; } }
         }
-        .recording-indicator {
-            color: #dc3545;
-            animation: blink 1.5s infinite;
-        }
-        @keyframes blink {
-            0% { opacity: 1; }
-            50% { opacity: 0.5; }
-            100% { opacity: 1; }
-        }
-        .timer {
-            font-size: 1.2rem;
-            margin-top: 1rem;
-        }
-        .progress {
-            height: 0.8rem;
-            border-radius: 0.5rem;
-        }
-        .toggle-switch {
-            position: relative;
-            display: inline-block;
-            width: 60px;
-            height: 34px;
-        }
-        .toggle-switch input {
-            opacity: 0;
-            width: 0;
-            height: 0;
-        }
-        .slider {
-            position: absolute;
-            cursor: pointer;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background-color: #ccc;
-            transition: .4s;
-            border-radius: 34px;
-        }
-        .slider:before {
-            position: absolute;
-            content: "";
-            height: 26px;
-            width: 26px;
-            left: 4px;
-            bottom: 4px;
-            background-color: white;
-            transition: .4s;
-            border-radius: 50%;
-        }
-        input:checked + .slider {
-            background-color: #2196F3;
-        }
-        input:checked + .slider:before {
-            transform: translateX(26px);
-        }
+        .toggle-switch { position: relative; display: inline-block; width: 52px; height: 30px; }
+        .toggle-switch input { opacity: 0; width: 0; height: 0; }
+        .slider { position: absolute; cursor: pointer; inset: 0; background: var(--border); transition: .3s; border-radius: 999px; }
+        .slider:before { content: ""; position: absolute; height: 24px; width: 24px; left: 3px; bottom: 3px;
+                         background: #fff; transition: .3s; border-radius: 50%; box-shadow: 0 1px 3px rgba(0,0,0,.25); }
+        input:checked + .slider { background: var(--primary); }
+        input:checked + .slider:before { transform: translateX(22px); }
+        .start-card { text-align: center; padding: 48px 32px; }
+        .start-card h2 { font-size: 24px; font-weight: 700; margin-bottom: 20px; }
+        .info-row { display: flex; justify-content: space-between; max-width: 380px; margin: 10px auto;
+                    font-size: 14px; border-bottom: 1px dashed var(--border); padding-bottom: 10px; }
+        .info-row .k { color: var(--muted); }
+        .tips { font-size: 12.5px; color: var(--muted); line-height: 2; text-align: left;
+                background: color-mix(in srgb, var(--primary) 6%, transparent);
+                border-radius: 12px; padding: 14px 20px; margin: 22px auto 0; max-width: 420px; }
+        [v-cloak] { display: none; }
     </style>
 </head>
 <body>
-    <div id="app" class="container mt-5">
-        <!-- 错误提示 -->
-        <div v-if="error" class="alert alert-danger text-center" role="alert">
+    <div id="app" class="container mt-4" v-cloak>
+        <div v-if="error" class="alert text-center" style="background:color-mix(in srgb,#e5484d 10%,transparent);color:#e5484d;border-radius:12px">
             {{ error }}
         </div>
 
-        <!-- 状态提示 -->
-        <div v-if="!error && interviewStatus === 0" class="card text-center interview-container">
-            <div class="card-body">
-                <h2 class="card-title mb-4">面试尚未开始</h2>
-                <p>您的面试尚未开始，请在约定时间再次访问此页面。</p>
-                <p><strong>面试时间:</strong> {{ interviewInfo.time }}</p>
-                <p><strong>面试岗位:</strong> {{ interviewInfo.position }}</p>
-                <p><strong>候选人:</strong> {{ interviewInfo.candidate }}</p>
+        <!-- 未开始 -->
+        <div v-if="!error && interviewStatus === 0" class="card interview-container">
+            <div class="start-card">
+                <h2>面试尚未开始</h2>
+                <p style="color:var(--muted)">请在约定时间再次访问此页面</p>
+                <div class="info-row"><span class="k">面试时间</span><span>{{ interviewInfo.time }}</span></div>
+                <div class="info-row"><span class="k">面试岗位</span><span>{{ interviewInfo.position }}</span></div>
+                <div class="info-row"><span class="k">候选人</span><span>{{ interviewInfo.candidate }}</span></div>
             </div>
         </div>
 
-        <!-- 初始提示框 - 只有当状态为1或2时才显示 -->
-        <div v-if="!error && !isInterviewStarted && (interviewStatus === 1 || interviewStatus === 2)" class="card text-center interview-container">
-            <div class="card-body">
-                <h2 class="card-title mb-4">欢迎参加面试</h2>
-                <p><strong>面试时间:</strong> {{ interviewInfo.time }}</p>
-                <p><strong>面试岗位:</strong> {{ interviewInfo.position }}</p>
-                <p><strong>候选人:</strong> {{ interviewInfo.candidate }}</p>
-                <button class="btn btn-primary start-btn mt-4" @click="startInterview">开始面试</button>
-            </div>
-        </div>
-
-        <!-- 面试已完成提示 -->
-        <div v-if="!error  && (interviewStatus >= 3) " class="card text-center interview-container">
-            <div class="card-body">
-                <h3 class="card-title mb-4">面试已完成</h3>
-                <p>您的面试已完成，感谢您的参与。</p>
-                <p>我们将尽快对您的面试进行评估，并通过邮件通知您结果。</p>
-            </div>
-        </div>
-
-        <!-- 面试界面 -->
-        <div v-if="isInterviewStarted && !isFinished" class="card interview-container shadow-sm">
-            <div class="card-header bg-light py-3">
-                <div class="d-flex justify-content-between align-items-center mb-2">
-                    <span class="badge bg-primary rounded-pill px-3 py-2">
-                        <i class="bi bi-chat-dots me-1"></i> 问题 {{ currentQuestionIndex + 1 }}/{{ totalQuestions }}
-                    </span>
-                    <div class="d-flex align-items-center">
-                        <span class="me-2">朗读问题</span>
-                        <label class="toggle-switch">
-                            <input type="checkbox" v-model="voiceReadingEnabled"  @change="toggleVoiceReading">
-                            <span class="slider"></span>
-                        </label>
-                        <i class="bi" :class="voiceReadingEnabled ? 'bi-volume-up ms-2' : 'bi-volume-mute ms-2'"></i>
-                    </div>
+        <!-- 欢迎页 -->
+        <div v-if="!error && !isInterviewStarted && (interviewStatus === 1 || interviewStatus === 2)" class="card interview-container">
+            <div class="start-card">
+                <h2>欢迎参加面试</h2>
+                <div class="info-row"><span class="k">面试时间</span><span>{{ interviewInfo.time }}</span></div>
+                <div class="info-row"><span class="k">面试岗位</span><span>{{ interviewInfo.position }}</span></div>
+                <div class="info-row"><span class="k">候选人</span><span>{{ interviewInfo.candidate }}</span></div>
+                <div class="info-row"><span class="k">题目数量</span><span>{{ totalQuestions }} 题</span></div>
+                <button class="btn btn-record btn-start mt-4" @click="startInterview">开始面试</button>
+                <div class="tips">
+                    · 每题点击「开始作答」录音，完成后点击「作答完毕」自动进入下一题<br>
+                    · 回答不可撤回，请想好再作答；中途请勿刷新页面<br>
+                    · 建议使用 Chrome / Edge 浏览器，并在安静环境中作答
                 </div>
-                
-                <!-- 进度条 -->
-                <div class="progress">
-                    <div class="progress-bar" role="progressbar" 
-                         :style="{ width: progressPercentage + '%' }" 
-                         :aria-valuenow="currentQuestionIndex + 1" 
-                         aria-valuemin="0" 
-                         :aria-valuemax="totalQuestions">
-                        {{ progressPercentage }}%
-                    </div>
-                </div>
-                
-                <div class="d-flex justify-content-end mt-2" v-if="isRecording">
-                    <div class="timer-display">
-                        <span class="badge bg-danger pulse-animation">
-                            <i class="bi bi-mic-fill me-1"></i> 录音中
+            </div>
+        </div>
+
+        <!-- 已完成 -->
+        <div v-if="!error && (interviewStatus >= 3)" class="card interview-container">
+            <div class="start-card">
+                <div style="font-size:52px;margin-bottom:12px">🎉</div>
+                <h2>面试已完成</h2>
+                <p style="color:var(--muted)">感谢您的参与，评估报告生成后我们将尽快与您联系。</p>
+            </div>
+        </div>
+
+        <!-- 面试进行中 -->
+        <div v-if="isInterviewStarted && !isFinished" class="card interview-container">
+            <div class="card-header py-3 px-4">
+                <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                    <span class="chip">第 {{ currentQuestionIndex + 1 }} / {{ totalQuestions }} 题</span>
+                    <div class="d-flex gap-2 align-items-center">
+                        <span class="chip dim" v-if="currentQuestion?.dimension">{{ currentQuestion.dimension }}</span>
+                        <span class="chip" :class="currentQuestion?.difficulty" v-if="currentQuestion?.difficulty">
+                            {{ {easy:'基础', medium:'进阶', hard:'挑战'}[currentQuestion.difficulty] || '难度' }}
                         </span>
-                        <span class="ms-2 fw-bold">{{ formatTime(recordingTime) }}</span>
+                        <span class="d-flex align-items-center gap-2 ms-2">
+                            <span style="font-size:12px;color:var(--muted)">朗读</span>
+                            <label class="toggle-switch">
+                                <input type="checkbox" v-model="voiceReadingEnabled" @change="toggleVoiceReading">
+                                <span class="slider"></span>
+                            </label>
+                        </span>
                     </div>
                 </div>
+                <div class="progress mt-3">
+                    <div class="progress-bar" :style="{ width: progressPercentage + '%' }"></div>
+                </div>
             </div>
-            
-            <div class="card-body p-4">
-                <h3 class="card-title text-left mb-4 fw-bold">{{ currentQuestion?.text }}</h3>
-                
-                <div class="d-flex justify-content-center mt-5">
-                    <button v-if="!isRecording" 
-                            class="btn btn-success btn-lg px-4 py-2" 
-                            @click="startRecording" 
-                            :disabled="loading">
-                        <i class="bi bi-mic me-2"></i>
-                        <span v-if="!loading">开始作答</span>
-                        <span v-else>准备中...</span>
-                    </button>
-                    <button v-if="isRecording" 
-                            class="btn btn-danger btn-lg px-4 py-2" 
-                            @click="stopRecording">
-                        <i class="bi bi-stop-circle me-2"></i>
-                        作答完毕
-                    </button>
+
+            <div class="card-body p-4 text-center">
+                <div class="q-text">{{ currentQuestion?.text }}</div>
+
+                <div v-if="isRecording" class="my-4">
+                    <div class="wave"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+                    <div style="font-size:13px;color:var(--rec);margin-top:8px">
+                        录音中 {{ formatTime(recordingTime) }} · 请开始作答
+                    </div>
                 </div>
 
-                <div v-if="loading" class="text-center mt-4">
-                    <div class="spinner-border text-primary" role="status">
-                        <span class="visually-hidden">加载中...</span>
+                <div class="mt-4" v-if="!loading">
+                    <button v-if="!isRecording" class="btn btn-record btn-start" @click="startRecording" :disabled="submitting">
+                        🎙 开始作答
+                    </button>
+                    <button v-if="isRecording" class="btn btn-record btn-stop" @click="confirmStopRecording">
+                        ⏹ 作答完毕
+                    </button>
+                    <div v-if="isRecording && recordingTime < 3" style="font-size:12px;color:var(--muted);margin-top:12px">
+                        建议回答不少于 30 秒，尽量完整表达
                     </div>
-                    <p class="mt-2 text-muted">{{ loadingMessage }}</p>
+                </div>
+
+                <div v-if="loading" class="my-4">
+                    <div class="spinner-border" style="color:var(--primary)" role="status"></div>
+                    <p class="mt-3" style="color:var(--muted);font-size:13px">{{ loadingMessage }}</p>
                 </div>
             </div>
-            
-            <div class="card-footer bg-light text-center py-3">
-                <small class="text-muted">请清晰地回答问题，回答完成后点击"作答完毕"</small>
+
+            <div class="card-footer text-center py-3" style="font-size:12px">
+                回答完成后点击「作答完毕」，系统将自动转录并进入下一题
             </div>
         </div>
     </div>
 
     <script>
-        const { createApp, ref, computed, onMounted } = Vue;
+        const { createApp, ref, computed, onMounted, onUnmounted } = Vue;
 
         createApp({
             setup() {
@@ -207,175 +175,95 @@
                 const isRecording = ref(false);
                 const mediaRecorder = ref(null);
                 const loading = ref(false);
+                const submitting = ref(false);
                 const loadingMessage = ref('');
                 const error = ref('');
                 const recordingTime = ref(0);
                 const timerInterval = ref(null);
-                const baseURL =  (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
-                ? 'http://localhost:8000/'   // 本地开发
-                : window.location.origin + '/'; // 生产：同源相对路径，无需硬编码域名
-                
-                const interviewStatus = ref(0); // 新增面试状态变量
-                const voiceReadingEnabled = ref(true); // 默认启用语音朗读
-                
-                // 从URL获取token
-                //url 形如 /interview.html?token=1234567890
-                const getTokenFromUrl = () => {
-                    const url = new URL(window.location.href);
-                    return url.searchParams.get('token');
-                };
-                const token = ref(getTokenFromUrl());
+                const baseURL = (location.hostname === 'localhost' || location.hostname === '127.0.0.1')
+                    ? 'http://localhost:8000/' : location.origin + '/';
 
-                // 面试信息
-                const interviewInfo = ref({
-                    time: '',
-                    position: '',
-                    candidate: '',
-                    voice_reading: true,
-                    question_count: 10
-                });
+                const interviewStatus = ref(0);
+                const voiceReadingEnabled = ref(true);
+                const token = ref(new URLSearchParams(location.search).get('token'));
+                const interviewInfo = ref({ time: '', position: '', candidate: '' });
 
+                const progressPercentage = computed(() =>
+                    Math.round(((currentQuestionIndex.value + 1) / Math.max(1, totalQuestions.value)) * 100));
 
-                // 计算进度百分比
-                const progressPercentage = computed(() => {
-                     return Math.round((   (currentQuestionIndex.value + 1) / totalQuestions.value) * 100);
-                });
-
-           
-
-                // 页面加载时获取面试信息
                 onMounted(async () => {
                     await fetchInterviewInfo();
                 });
+                onUnmounted(() => stopTimer());
 
-                // 获取面试信息
                 const fetchInterviewInfo = async () => {
                     loading.value = true;
                     loadingMessage.value = '获取面试信息...';
                     try {
-                        const response = await axios.get(`${baseURL}api/interview/${token.value}/info`);
-                        interviewInfo.value = response.data;
-                        // 获取面试状态
-                        if (response.data.status !== undefined) {
-                            interviewStatus.value = response.data.status;
-                        }
-                        
-                        // 设置语音朗读状态
-                        if (response.data.voice_reading !== undefined) {
-                            voiceReadingEnabled.value = Boolean(response.data.voice_reading);
-                            console.log(voiceReadingEnabled.value)
-                        }
-                        
-                        // 如果面试状态是已完成(3)，自动设置为完成状态
-                        if (interviewStatus.value === 3) {
-                            isFinished.value = true;
-                        }
-
-                        // 获取问题总数
-                        if (response.data.question_count !== undefined) {
-                            totalQuestions.value = response.data.question_count;
-                        }
-                        
+                        const { data } = await axios.get(`${baseURL}api/interview/${token.value}/info`);
+                        interviewInfo.value = data;
+                        if (data.status !== undefined) interviewStatus.value = data.status;
+                        if (data.voice_reading !== undefined) voiceReadingEnabled.value = Boolean(data.voice_reading);
+                        if (interviewStatus.value === 3) isFinished.value = true;
+                        if (data.question_count) totalQuestions.value = data.question_count;
                     } catch (err) {
-                        console.error('获取面试信息失败:', err);
                         error.value = err.response?.data?.error || '获取面试信息失败，请检查链接是否正确';
-                    } finally {
-                        loading.value = false;
-                    }
+                    } finally { loading.value = false; }
                 };
 
-            
-
-                // 切换语音朗读状态
                 const toggleVoiceReading = async () => {
                     try {
-                        const response = await axios.post(
-                            `${baseURL}api/interview/${token.value}/toggle_voice_reading`, 
-                            { enabled: voiceReadingEnabled.value }
-                        );
-                        if (voiceReadingEnabled.value) {
+                        await axios.post(`${baseURL}api/interview/${token.value}/toggle_voice_reading`,
+                            { enabled: voiceReadingEnabled.value });
+                        if (voiceReadingEnabled.value && currentQuestion.value) {
                             readQuestionAloud(currentQuestion.value.text);
                         }
-                    } catch (err) {
-                        console.error('更新语音朗读设置失败:', err);
-                        // 如果失败，恢复之前的状态
-                        voiceReadingEnabled.value = !voiceReadingEnabled.value;
-                    }
+                    } catch (err) { voiceReadingEnabled.value = !voiceReadingEnabled.value; }
                 };
 
-                // 开始面试
                 const startInterview = () => {
-                    // 只有当状态为1(试题已备好)或2(面试进行中)时才允许开始面试
                     if (interviewStatus.value === 1 || interviewStatus.value === 2) {
                         isInterviewStarted.value = true;
                         fetchQuestion();
-                    } else {
-                        error.value = '当前状态无法开始面试';
-                    }
+                    } else { error.value = '当前状态无法开始面试'; }
                 };
 
-                // 获取面试问题
                 const fetchQuestion = async () => {
                     loading.value = true;
                     loadingMessage.value = '获取问题中...';
                     try {
-                        const response = await axios.get(`${baseURL}api/interview/${token.value}/get_question`, {
-                            params: {
-                                current_id: currentQuestion.value ? currentQuestion.value.id : 0
-                            }
+                        const { data } = await axios.get(`${baseURL}api/interview/${token.value}/get_question`, {
+                            params: { current_id: currentQuestion.value ? currentQuestion.value.id : 0 }
                         });
-                        if (response.data.id === 0) {
-                            isFinished.value = true;
-                            interviewStatus.value = 3;
-                          
-                        } else {
-                            currentQuestion.value = response.data;
-                            // 根据设置决定是否朗读问题
-                            if (voiceReadingEnabled.value) {
-                                readQuestionAloud(currentQuestion.value.text);
-                            }
+                        if (data.id === 0) { isFinished.value = true; interviewStatus.value = 3; }
+                        else {
+                            currentQuestion.value = data;
+                            if (voiceReadingEnabled.value) readQuestionAloud(data.text);
                         }
                     } catch (err) {
-                        console.error('获取问题失败:', err);
                         error.value = err.response?.data?.error || '获取问题失败，请刷新页面重试';
-                    } finally {
-                        loading.value = false;
-                    }
+                    } finally { loading.value = false; }
                 };
 
-                // 使用语音朗读问题
                 const readQuestionAloud = (text) => {
-                    if (!voiceReadingEnabled.value) return;
-                    
-                    const utterance = new SpeechSynthesisUtterance(text);
-                    utterance.lang = 'zh-CN';
-                    window.speechSynthesis.speak(utterance);
+                    if (!voiceReadingEnabled.value || !text) return;
+                    window.speechSynthesis.cancel();
+                    const u = new SpeechSynthesisUtterance(text);
+                    u.lang = 'zh-CN';
+                    window.speechSynthesis.speak(u);
                 };
 
-                // 格式化时间
-                const formatTime = (seconds) => {
-                    const mins = Math.floor(seconds / 60);
-                    const secs = seconds % 60;
-                    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-                };
+                const formatTime = (s) =>
+                    `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
 
-                // 开始录音计时
                 const startTimer = () => {
                     recordingTime.value = 0;
-                    timerInterval.value = setInterval(() => {
-                        recordingTime.value++;
-                    }, 1000);
+                    timerInterval.value = setInterval(() => recordingTime.value++, 1000);
                 };
-
-                // 停止录音计时
                 const stopTimer = () => {
-                    if (timerInterval.value) {
-                        clearInterval(timerInterval.value);
-                        timerInterval.value = null;
-                    }
+                    if (timerInterval.value) { clearInterval(timerInterval.value); timerInterval.value = null; }
                 };
 
-                // 开始录音
                 const startRecording = async () => {
                     loading.value = true;
                     loadingMessage.value = '准备录音...';
@@ -383,102 +271,72 @@
                         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
                         mediaRecorder.value = new MediaRecorder(stream);
                         const chunks = [];
-                        
                         mediaRecorder.value.ondataavailable = (e) => chunks.push(e.data);
                         mediaRecorder.value.onstop = async () => {
-                            const audioBlob = new Blob(chunks, { type: 'audio/wav' });
-                            
-                            // 获取当前问题ID
-                            const questionId = currentQuestion.value.id;
-                            
-                            // 创建FormData
+                            stopTimer();
+                            const audioBlob = new Blob(chunks, { type: 'audio/webm' });
+                            if (audioBlob.size < 2048) {
+                                // 录音过短，视为误触
+                                currentQuestionIndex.value = currentQuestionIndex.value; // no-op
+                                stream.getTracks().forEach(t => t.stop());
+                                return;
+                            }
                             const formData = new FormData();
-                            formData.append('question_id', questionId);
-                            formData.append('audio_answer', audioBlob, 'answer.wav');
-                            
-                            loading.value = true;
-                            loadingMessage.value = '提交答案中...';
+                            formData.append('question_id', currentQuestion.value.id);
+                            formData.append('audio_answer', audioBlob, 'answer.webm');
+
+                            submitting.value = true; loading.value = true;
+                            loadingMessage.value = '正在上传并转录你的回答…';
                             try {
-                                // 提交当前问题的答案
-                                const response = await axios.post(`${baseURL}api/interview/${token.value}/submit_answer`, formData, {
-                                    headers: { 'Content-Type': 'multipart/form-data' }
-                                });
-                                
-                                // 从响应中获取下一个问题
-                                if (response.data.next_question) {
-                                    if (response.data.next_question.id === 0) {
-                                        isFinished.value = true;
-                                        interviewStatus.value = 3;
-                                    } else {
-                                        currentQuestion.value = response.data.next_question;
+                                const { data } = await axios.post(
+                                    `${baseURL}api/interview/${token.value}/submit_answer`, formData,
+                                    { headers: { 'Content-Type': 'multipart/form-data' }, timeout: 120000 });
+                                if (data.next_question) {
+                                    if (data.next_question.id === 0) { isFinished.value = true; interviewStatus.value = 3; }
+                                    else {
+                                        currentQuestion.value = data.next_question;
                                         currentQuestionIndex.value++;
-                                        // 根据设置决定是否朗读问题
-                                        if (voiceReadingEnabled.value) {
-                                            readQuestionAloud(currentQuestion.value.text);
-                                        }
+                                        if (voiceReadingEnabled.value) readQuestionAloud(currentQuestion.value.text);
                                     }
                                 }
                             } catch (err) {
-                                console.error('提交答案失败:', err);
-                                error.value = err.response?.data?.error || '提交答案失败，将尝试获取下一题';
-                                // 发生错误时尝试获取下一题
-                                fetchQuestion();
-                            } finally {
-                                loading.value = false;
-                            }
-
-                            // 停止所有音轨
-                            stream.getTracks().forEach(track => track.stop());
+                                error.value = err.response?.data?.error || '提交失败，请检查网络后重试本题';
+                            } finally { loading.value = false; submitting.value = false; }
+                            stream.getTracks().forEach(t => t.stop());
                         };
-                        
                         mediaRecorder.value.start();
                         isRecording.value = true;
                         startTimer();
                         loading.value = false;
                     } catch (err) {
-                        console.error('录音失败:', err);
-                        error.value = '无法访问麦克风，请确保您已授予麦克风权限';
+                        error.value = '无法访问麦克风，请确保已授权并使用 https 或 localhost 访问';
                         loading.value = false;
                     }
                 };
 
-                // 停止录音
+                // 防误触确认
+                const confirmStopRecording = () => {
+                    if (recordingTime.value < 5) {
+                        if (!confirm('录音时长过短（不足 5 秒），确定提交吗？')) return;
+                    }
+                    stopRecording();
+                };
+
                 const stopRecording = () => {
                     if (mediaRecorder.value && mediaRecorder.value.state === 'recording') {
                         mediaRecorder.value.stop();
-                        stopTimer();
                         isRecording.value = false;
                     }
                 };
 
                 return {
-                    isInterviewStarted,
-                    isFinished,
-                    currentQuestion,
-                    currentQuestionIndex,
-                    totalQuestions,
-                    progressPercentage,
-                    isRecording,
-                    loading,
-                    loadingMessage,
-                    interviewInfo,
-                    token,
-                    error,
-                    recordingTime,
-                    interviewStatus,
-                    voiceReadingEnabled,
-                    formatTime,
-                    startInterview,
-                    startRecording,
-                    stopRecording,
-                    toggleVoiceReading
+                    isInterviewStarted, isFinished, currentQuestion, currentQuestionIndex, totalQuestions,
+                    progressPercentage, isRecording, loading, submitting, loadingMessage, interviewInfo,
+                    error, recordingTime, interviewStatus, voiceReadingEnabled,
+                    formatTime, startInterview, startRecording, stopRecording, confirmStopRecording, toggleVoiceReading
                 };
             }
         }).mount('#app');
     </script>
-
-    <!-- Bootstrap JS and Icons -->
-    <script src="js/bootstrap.bundle.min.js"></script>
-    <link rel="stylesheet" href="css/bootstrap-icons.css">
 </body>
-</html> 
+</html>

@@ -1,10 +1,13 @@
 """
-OpenInterview - 面试问题生成服务
+OpenInterview - 面试问题生成服务（v2）
 
-职责：为「未开始(status=0)」的面试生成问题并写入数据库，状态置为 1（试题已备好）。
-由定时任务 worker 周期性调用。
+v2 增强：
+- 结构化出题：每题带能力维度（dimension）、难度（difficulty）、题型（question_type）
+- 题型覆盖：技术深度 / 项目复盘 / 系统设计 / 行为素质，避免题目同质化
+- 追问建议：每题附带 followup 提示，供报告生成追问建议
 """
 import json
+from datetime import datetime
 
 from config import config
 from constants import InterviewStatus
@@ -13,56 +16,80 @@ from services.llm import chat_json
 from services.resume import extract_text_from_resume
 
 QUESTION_FORMAT_EXAMPLE = [
-    {"question": "请介绍一下你的专业背景和技能", "score_standard": "清晰度25分，相关性25分，深度50分"},
-    {"question": "描述一个你解决过的技术挑战", "score_standard": "复杂度30分，解决方案40分，结果30分"},
+    {
+        "question": "请介绍一个你主导的、最能体现岗位核心能力要求的项目，并说明你在其中的关键决策。",
+        "score_standard": "项目真实性与深度30分；技术决策合理性40分；量化结果表达30分",
+        "dimension": "项目复盘",
+        "difficulty": "medium",
+        "question_type": "project",
+        "followup": "如果时间或资源减半，你会如何调整方案？"
+    }
 ]
 
 
 def generate_questions(resume_content, position_name, requirements, responsibilities) -> list:
-    """调用 LLM 根据简历 + 岗位信息生成面试问题，返回问题列表"""
+    """调用 LLM 生成结构化面试问题列表"""
     resume_text = extract_text_from_resume(resume_content)
+    # 控制上下文长度，防止超长简历撑爆 token
+    if len(resume_text) > 8000:
+        resume_text = resume_text[:8000] + "…（简历过长已截断）"
     print(f"[questions] 简历文本长度: {len(resume_text)}")
 
     system_prompt = (
-        "你是一名专业的招聘面试官。请根据岗位要求和候选人简历生成针对性的技术面试问题，"
-        "每个问题附带评分标准，返回标准的 JSON 格式。"
+        "你是一名严谨、专业的技术面试官。你的出题原则：\n"
+        "1. 问题必须与岗位要求和候选人简历高度相关，绝不问简历中完全无依据的泛泛问题；\n"
+        "2. 题目结构均衡：约 40% 技术深度、25% 项目复盘、20% 系统设计、15% 行为素质；\n"
+        "3. 难度递进：前 1/3 基础题，中间 1/3 进阶题，最后 1/3 挑战题；\n"
+        "4. 每题给出可操作的评分标准，分值合计 100 分；\n"
+        "5. 严格只输出 JSON。"
     )
     user_prompt = (
         f"岗位名称: {position_name}\n"
         f"岗位要求: {requirements or '未提供'}\n"
         f"岗位职责: {responsibilities or '未提供'}\n"
         f"候选人简历: {resume_text}\n\n"
-        f"请生成 {config.QUESTION_COUNT} 个面试问题和评分标准，"
-        f"JSON 格式参考 {json.dumps(QUESTION_FORMAT_EXAMPLE, ensure_ascii=False)}。"
-        f"每个问题满分 {100} 分（单题 0-100 分制），"
-        '返回 JSON 对象，格式为 {"questions": [{"question": "...", "score_standard": "..."}]}。'
+        f"请生成 {config.QUESTION_COUNT} 个面试问题。"
+        f"JSON 格式参考 {json.dumps(QUESTION_FORMAT_EXAMPLE, ensure_ascii=False)}。\n"
+        '返回 JSON 对象：{"questions": [上述结构数组]}。'
+        "dimension 取值：技术深度/项目复盘/系统设计/行为素质；"
+        "difficulty 取值：easy/medium/hard；"
+        "question_type 取值：technical/project/design/behavior。"
     )
 
     result = chat_json(system_prompt, user_prompt)
 
-    # 兼容两种返回形态：{"questions": [...]} 或直接返回 [...]
     questions = result.get("questions") if isinstance(result, dict) else result
     if not isinstance(questions, list) or not questions:
         raise ValueError(f"LLM 返回的问题列表为空或格式不符: {result}")
 
-    # 规范化字段
+    valid_types = {"technical", "project", "design", "behavior"}
+    valid_difficulty = {"easy", "medium", "hard"}
     normalized = []
     for q in questions:
         if not isinstance(q, dict) or not q.get("question"):
             continue
+        qtype = str(q.get("question_type", "technical")).lower()
         normalized.append(
             {
                 "question": str(q["question"]).strip(),
-                "score_standard": str(q.get("score_standard", "综合评估 100 分制")).strip(),
+                "score_standard": str(q.get("score_standard", "综合评估，满分100分")).strip(),
+                "dimension": str(q.get("dimension", "综合")).strip(),
+                "difficulty": qtype if qtype in valid_difficulty else str(q.get("difficulty", "medium")).lower() if q.get("difficulty") else "medium",
+                "question_type": qtype if qtype in valid_types else "technical",
+                "followup": str(q.get("followup", "")).strip(),
             }
         )
+    # difficulty 字段规范化修正（上面表达式可能被 question_type 污染）
+    for q in normalized:
+        if q["difficulty"] not in valid_difficulty:
+            q["difficulty"] = "medium"
     if not normalized:
         raise ValueError("LLM 返回的问题均缺少 question 字段")
     return normalized
 
 
 def save_questions(interview_id: int, questions: list) -> None:
-    """保存问题并更新面试状态为「试题已备好」"""
+    """保存结构化问题并更新面试状态为「试题已备好」"""
     conn = get_db()
     try:
         cursor = conn.cursor()
@@ -71,8 +98,15 @@ def save_questions(interview_id: int, questions: list) -> None:
             if isinstance(score_standard, dict):
                 score_standard = json.dumps(score_standard, ensure_ascii=False)
             cursor.execute(
-                "INSERT INTO interview_questions (interview_id, question, score_standard) VALUES (?, ?, ?)",
-                (interview_id, q["question"], score_standard),
+                """INSERT INTO interview_questions
+                   (interview_id, question, score_standard, question_type, difficulty, dimension)
+                   VALUES (?, ?, ?, ?, ?, ?)""",
+                (
+                    interview_id, q["question"], score_standard,
+                    q.get("question_type", "technical"),
+                    q.get("difficulty", "medium"),
+                    q.get("dimension", "综合"),
+                ),
             )
         cursor.execute(
             "UPDATE interviews SET status = ?, question_count = ? WHERE id = ?",
@@ -85,7 +119,7 @@ def save_questions(interview_id: int, questions: list) -> None:
 
 def process_pending_interviews() -> None:
     """扫描所有未开始的面试，逐一生成问题（单场失败不影响其他场次）"""
-    print(f"[questions] [{__import__('datetime').datetime.now():%Y-%m-%d %H:%M:%S}] 开始处理未开始的面试...")
+    print(f"[questions] [{datetime.now():%Y-%m-%d %H:%M:%S}] 开始处理未开始的面试...")
 
     conn = get_db()
     pending = conn.execute(
