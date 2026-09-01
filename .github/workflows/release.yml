@@ -1,0 +1,52 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies (without heavy ML packages)
+        working-directory: app
+        run: |
+          python -m pip install --upgrade pip
+          grep -vE "^(torch|openai-whisper)" requirements.txt > ci-requirements.txt
+          pip install -r ci-requirements.txt
+
+      - name: Run tests before release
+        working-directory: app
+        env:
+          ADMIN_PASSWORD: test-admin-pw
+          OPENAI_API_KEY: dummy-key
+        run: pytest tests/
+
+      - name: Extract release notes from CHANGELOG
+        id: notes
+        run: |
+          VERSION="${GITHUB_REF#refs/tags/}"
+          # 提取当前版本的 changelog 段落
+          awk -v ver="$VERSION" '
+            $0 ~ "^## \\[" ver "\\]" {flag=1; next}
+            /^## \[/ && flag {exit}
+            flag {print}
+          ' CHANGELOG.md > release_notes.md
+          cat release_notes.md
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          body_path: release_notes.md
+          generate_release_notes: true

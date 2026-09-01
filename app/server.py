@@ -17,13 +17,16 @@ from api.interviews import interviews_bp
 from api.positions import positions_bp
 from config import config
 from database import init_db
+from logging_config import RequestIDMiddleware, register_request_logging, setup_logging
 
 
 def create_app() -> Flask:
     """应用工厂"""
+    setup_logging()
     init_db()
 
     app = Flask(__name__, static_folder="static", static_url_path="/static")
+    app.wsgi_app = RequestIDMiddleware(app.wsgi_app)  # 请求追踪
     CORS(app)
 
     app.register_blueprint(auth_bp)
@@ -43,14 +46,15 @@ def create_app() -> Flask:
     # 健康检查
     @app.route("/api/health")
     def health():
-        return {"status": "ok", "version": "2.0.0"}
+        return {"status": "ok", "version": "3.0.0"}
 
+    register_request_logging(app)
     return app
 
 
 app = create_app()
 
 if __name__ == "__main__":
-    print(f"OpenInterview v2 Web 服务启动: http://{config.HOST}:{config.PORT}")
+    print(f"OpenInterview v3 Web 服务启动: http://{config.HOST}:{config.PORT}")
     print(f"管理后台: {config.PUBLIC_BASE_URL}static/admin.html")
     app.run(debug=config.DEBUG, host=config.HOST, port=config.PORT)

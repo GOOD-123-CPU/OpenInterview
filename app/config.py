@@ -48,6 +48,13 @@ class Config:
     # ---- 定时任务 ----
     SCHEDULE_INTERVAL_MINUTES = _get_int("SCHEDULE_INTERVAL_MINUTES", 5)
 
+    # ---- 日志 ----
+    LOG_FORMAT = os.getenv("LOG_FORMAT", "console")  # console | json
+
+    # ---- Webhook 事件通知 ----
+    WEBHOOK_URL = os.getenv("WEBHOOK_URL", "")
+    WEBHOOK_SECRET = os.getenv("WEBHOOK_SECRET", "")
+
     # ---- 业务参数 ----
     QUESTION_COUNT = _get_int("QUESTION_COUNT", 10)  # 每场面试生成的问题数
     TOKEN_LENGTH = _get_int("TOKEN_LENGTH", 32)  # 面试链接令牌长度

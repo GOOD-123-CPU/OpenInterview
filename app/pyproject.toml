@@ -1,0 +1,45 @@
+[project]
+name = "openinterview"
+version = "3.0.0"
+description = "AI-powered interview system: LLM question generation, voice interviews with Whisper, and deep PDF evaluation reports"
+readme = "README.md"
+license = { file = "LICENSE" }
+requires-python = ">=3.10"
+authors = [{ name = "OpenInterview Contributors" }]
+keywords = ["interview", "ai", "llm", "whisper", "recruiting", "flask"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Framework :: Flask",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Office/Business :: Human Resources",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+exclude = ["venv", "__pycache__", "docs", "static"]
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "I",   # isort
+    "B",   # flake8-bugbear
+    "UP",  # pyupgrade
+    "SIM", # flake8-simplify
+]
+ignore = [
+    "E501", # 长行交由格式化处理（提示词模板等场景难避免）
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["api", "services", "tasks", "config", "database", "constants", "security", "logging_config", "prompt_registry"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q --tb=short"

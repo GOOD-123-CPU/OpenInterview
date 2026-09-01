@@ -15,7 +15,10 @@ from weasyprint import HTML
 from config import config
 from constants import QUESTION_FULL_SCORE, InterviewStatus
 from database import get_db
+from prompt_registry import render_prompt
 from services.llm import chat_json
+from services.radar import render_radar_svg
+from services.webhook import EVENT_REPORT_GENERATED, emit_event
 
 VALID_DIMENSIONS = {"technical": "技术深度", "project": "项目复盘", "design": "系统设计", "behavior": "行为素质"}
 
@@ -31,44 +34,26 @@ def _clamp_score(value, default=None):
 
 def call_ai_model(candidate_name, position_name, interviewer, questions) -> dict:
     """调用 LLM 进行深度评估，返回结构化结果（失败时返回空壳由调用方降级）"""
-    prompt_parts = [
-        f'你是一位资深的面试评估专家，正在评估候选人"{candidate_name}"应聘"{position_name}"职位的面试表现。'
-        f"面试官是 {interviewer}。\n\n",
-        "评估要求：\n"
-        f"1. 每题按评分标准打分，分数为 0-{QUESTION_FULL_SCORE} 的整数；\n"
-        "2. 点评必须具体到候选人的实际回答内容，引用其原话关键片段，杜绝空话；\n"
-        "3. 综合评估需指出：核心优势（3条以内）、主要短板（3条以内）、若进入下一轮值得追问的方向；\n"
-        "4. 录用建议从「强烈推荐 / 推荐录用 / 可以考虑 / 不建议录用」四档中选择，并简述理由。\n\n",
-        "以下是面试问答记录：\n",
-    ]
+    qa_parts = []
     for i, q in enumerate(questions, 1):
-        prompt_parts.append(
+        qa_parts.append(
             f"问题{i}（维度: {q.get('dimension') or '综合'}，题型: {q.get('question_type') or 'technical'}）:\n"
             f"题目: {q.get('question', '未提供问题')}\n"
             f"评分标准: {q.get('score_standard', '未提供评分标准')}\n"
-            f"候选人回答: {q.get('answer_text') or '未作答'}\n\n"
+            f"候选人回答: {q.get('answer_text') or '未作答'}\n"
         )
 
-    prompt_parts.append(
-        f"请以 JSON 返回，结构如下（分数均为 0-{QUESTION_FULL_SCORE} 整数）：\n"
-        "{\n"
-        '  "question_evaluations": [{"id": 1, "score": 85, "comments": "…引用回答关键片段的具体点评…", "followup": "针对此题的追问建议"}],\n'
-        '  "dimension_scores": {"technical": 85, "project": 80, "design": 75, "behavior": 90},\n'
-        f'  "technical_score": 85, "communication_score": 90, "overall_score": 84,\n'
-        '  "strengths": ["优势1", "优势2"],\n'
-        '  "weaknesses": ["短板1", "短板2"],\n'
-        '  "followup_suggestions": ["下一轮建议追问：…", "…"],\n'
-        '  "comments": "综合评语（150字以内）",\n'
-        '  "recommendation": "推荐录用", "recommendation_reason": "理由"\n'
-        "}\n"
-        "未作答的题目 score 记 0，comments 注明「未作答」。"
+    system_prompt, user_prompt = render_prompt(
+        "report_evaluation",
+        candidate_name=candidate_name,
+        position_name=position_name,
+        interviewer=interviewer or "未指定",
+        full_score=QUESTION_FULL_SCORE,
+        qa_block="\n".join(qa_parts),
     )
 
     try:
-        result = chat_json(
-            "你是一位专业的面试评估专家，负责技术面试的深度评估。只输出 JSON。",
-            "\n".join(prompt_parts),
-        )
+        result = chat_json(system_prompt, user_prompt)
 
         # 评分离散化校验
         for ev in result.get("question_evaluations", []) or []:
@@ -159,6 +144,11 @@ def generate_pdf_report(candidate_name, position_name, interviewer,
             </div>
 
             <div class="section">
+                <h2>能力雷达图</h2>
+                <div style="text-align:center;">{{ radar_svg|safe }}</div>
+            </div>
+
+            <div class="section">
                 <h2>分维度表现</h2>
                 <table class="table">
                     <tr><th>维度</th>{% for k, v in dimension_scores.items() %}<th>{{ v.label }}</th>{% endfor %}</tr>
@@ -228,6 +218,13 @@ def generate_pdf_report(candidate_name, position_name, interviewer,
         for q in questions_meta
     ]
 
+    # 四维雷达图（维度键 → 得分）
+    raw_scores = {
+        k: (v.get("score") if isinstance(v, dict) else v)
+        for k, v in (evaluation_result.get("dimension_scores") or {}).items()
+    }
+    radar_svg = render_radar_svg(raw_scores)
+
     render_data = {
         "interview_date": datetime.now().strftime("%Y年%m月%d日 %H:%M"),
         "candidate_name": candidate_name,
@@ -247,6 +244,7 @@ def generate_pdf_report(candidate_name, position_name, interviewer,
         "question_evaluations": evaluation_result.get("question_evaluations", []),
         "questions": questions_meta_render,
         "answers": answers,
+        "radar_svg": radar_svg,
     }
 
     env = Environment()
@@ -322,5 +320,14 @@ def process_pending_reports() -> None:
             )
             update_interview_report(interview_id, pdf_report)
             print(f"[report] 面试 {interview_id}（{candidate['name']}）深度报告已生成")
+
+            # Webhook 通知（尽力而为）
+            emit_event(EVENT_REPORT_GENERATED, {
+                "interview_id": interview_id,
+                "candidate": candidate["name"],
+                "position": position["name"],
+                "overall_score": evaluation.get("overall_score"),
+                "recommendation": evaluation.get("recommendation"),
+            })
         except Exception as e:
             print(f"[report] 处理面试 {interview_id} 失败: {e}")

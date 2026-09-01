@@ -2,11 +2,11 @@
 OpenInterview - 简历解析服务层
 
 从二进制简历内容中提取文本，供 LLM 生成面试问题使用。
-当前支持 PDF（PyPDF2）；解析失败时降级为纯文本尝试，保证流程不中断。
+当前支持 PDF（pypdf）；解析失败时降级为纯文本尝试，保证流程不中断。
 """
 import io
 
-import PyPDF2
+import pypdf
 
 
 def extract_text_from_resume(pdf_content) -> str:
@@ -17,7 +17,7 @@ def extract_text_from_resume(pdf_content) -> str:
     # 首选：PDF 解析
     try:
         pdf_file = io.BytesIO(pdf_content)
-        reader = PyPDF2.PdfReader(pdf_file)
+        reader = pypdf.PdfReader(pdf_file)
         text = "\n".join(page.extract_text() or "" for page in reader.pages)
         if text.strip():
             return text.strip()

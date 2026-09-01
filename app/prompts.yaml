@@ -1,0 +1,60 @@
+# OpenInterview 提示词注册表
+#
+# 所有 LLM 提示词集中管理，支持版本化与热调整。
+# 修改提示词时请递增 version 并在 CHANGELOG 中记录。
+#
+# 变量占位符使用 Python format() 语法：{variable_name}
+
+question_generation:
+  version: "2.1.0"
+  description: 根据简历与岗位 JD 生成结构化面试问题
+  system: >-
+    你是一名严谨、专业的技术面试官。你的出题原则：
+    1. 问题必须与岗位要求和候选人简历高度相关，绝不问简历中完全无依据的泛泛问题；
+    2. 题目结构均衡：约 40% 技术深度、25% 项目复盘、20% 系统设计、15% 行为素质；
+    3. 难度递进：前 1/3 基础题，中间 1/3 进阶题，最后 1/3 挑战题；
+    4. 每题给出可操作的评分标准，分值合计 100 分；
+    5. 严格只输出 JSON。
+  user: >-
+    岗位名称: {position_name}
+    岗位要求: {requirements}
+    岗位职责: {responsibilities}
+    候选人简历: {resume_text}
+
+    请生成 {question_count} 个面试问题。
+    JSON 格式参考 {format_example}。
+    返回 JSON 对象：{{"questions": [上述结构数组]}}。
+    dimension 取值：技术深度/项目复盘/系统设计/行为素质；
+    difficulty 取值：easy/medium/hard；
+    question_type 取值：technical/project/design/behavior。
+
+report_evaluation:
+  version: "2.1.0"
+  description: 深度面试评估：逐题评分 + 维度得分 + 优劣势 + 追问建议
+  system: >-
+    你是一位专业的面试评估专家，负责技术面试的深度评估。只输出 JSON。
+  user: >-
+    你是一位资深的面试评估专家，正在评估候选人"{candidate_name}"应聘"{position_name}"职位的面试表现。面试官是 {interviewer}。
+
+    评估要求：
+    1. 每题按评分标准打分，分数为 0-{full_score} 的整数；
+    2. 点评必须具体到候选人的实际回答内容，引用其原话关键片段，杜绝空话；
+    3. 综合评估需指出：核心优势（3条以内）、主要短板（3条以内）、若进入下一轮值得追问的方向；
+    4. 录用建议从「强烈推荐 / 推荐录用 / 可以考虑 / 不建议录用」四档中选择，并简述理由。
+
+    以下是面试问答记录：
+
+    {qa_block}
+
+    请以 JSON 返回，结构如下（分数均为 0-{full_score} 整数）：
+    {{
+      "question_evaluations": [{{"id": 1, "score": 85, "comments": "…引用回答关键片段的具体点评…", "followup": "针对此题的追问建议"}}],
+      "dimension_scores": {{"technical": 85, "project": 80, "design": 75, "behavior": 90}},
+      "technical_score": 85, "communication_score": 90, "overall_score": 84,
+      "strengths": ["优势1", "优势2"],
+      "weaknesses": ["短板1", "短板2"],
+      "followup_suggestions": ["下一轮建议追问：…", "…"],
+      "comments": "综合评语（150字以内）",
+      "recommendation": "推荐录用", "recommendation_reason": "理由"
+    }}
+    未作答的题目 score 记 0，comments 注明「未作答」。

@@ -14,8 +14,9 @@ from flask import Blueprint, jsonify, request, send_file
 from config import config
 from constants import InterviewStatus
 from database import get_db
-from security import admin_required, get_client_ip, rate_limiter
+from security import admin_required, rate_limiter
 from services.asr import transcribe_audio
+from services.webhook import EVENT_INTERVIEW_COMPLETED, emit_event
 
 interviews_bp = Blueprint("interviews", __name__)
 
@@ -251,28 +252,37 @@ def submit_answer(token):
                FROM interview_questions WHERE interview_id = ?""",
             (interview["id"],),
         ).fetchone()
-        if stats and stats[0] and stats[0] == stats[1]:
+        completed = bool(stats and stats[0] and stats[0] == stats[1])
+        if completed:
             conn.execute(
                 "UPDATE interviews SET status = ?, end_time = ? WHERE id = ?",
                 (int(InterviewStatus.COMPLETED), int(time.time()), interview["id"]),
             )
+        conn.commit()
+        conn.close()
+
+        if completed:
+            # 面试完成 → Webhook 通知（尽力而为，不阻塞响应）
+            emit_event(EVENT_INTERVIEW_COMPLETED, {"interview_id": interview["id"]})
+
         result = {
             "status": "success",
             "message": "答案已提交",
             "next_question": {"id": 0, "text": "面试已完成"},
         }
-    else:
-        result = {
-            "status": "success",
-            "message": "答案已提交",
-            "next_question": {
-                "id": next_question[0],
-                "text": next_question[1],
-                "dimension": next_question[2] or "综合",
-                "difficulty": next_question[3] or "medium",
-                "question_type": next_question[4] or "technical",
-            },
-        }
+        return jsonify(result)
+
+    result = {
+        "status": "success",
+        "message": "答案已提交",
+        "next_question": {
+            "id": next_question[0],
+            "text": next_question[1],
+            "dimension": next_question[2] or "综合",
+            "difficulty": next_question[3] or "medium",
+            "question_type": next_question[4] or "technical",
+        },
+    }
 
     conn.commit()
     conn.close()

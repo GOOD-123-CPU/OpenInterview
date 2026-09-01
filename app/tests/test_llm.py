@@ -1,7 +1,10 @@
 """
 OpenInterview - LLM 服务 JSON 解析单元测试（不发起真实网络请求）
 """
-import sys, os
+import json
+import os
+import sys
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import pytest
@@ -22,5 +25,5 @@ class TestExtractJson:
         assert _extract_json(text) == {"ok": True}
 
     def test_invalid_raises(self):
-        with pytest.raises(Exception):
+        with pytest.raises(json.JSONDecodeError):
             _extract_json("这不是 JSON")

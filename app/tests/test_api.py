@@ -4,10 +4,7 @@ OpenInterview - API 集成测试
 覆盖：健康检查、鉴权流程、岗位/候选人/面试 CRUD、权限矩阵、限流。
 （共享 fixture（position/candidate）已移至 conftest.py）
 """
-import time
 import uuid
-
-import pytest
 
 
 class TestHealth:

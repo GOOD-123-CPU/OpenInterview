@@ -47,9 +47,8 @@ def transcribe_audio(audio_bytes: bytes) -> str:
         return (result.get("text") or "").strip()
     finally:
         if tmp_path:
+            import contextlib
             import os
 
-            try:
+            with contextlib.suppress(OSError):
                 os.unlink(tmp_path)
-            except OSError:
-                pass

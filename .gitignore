@@ -6,6 +6,7 @@
 *.pem
 *.crt
 *.p12
+.secret_key
 
 # ===== SSL 证书目录 =====
 nginx/ssl/*

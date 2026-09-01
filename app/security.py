@@ -17,8 +17,6 @@ from functools import wraps
 
 from flask import jsonify, request
 
-from config import config
-
 # ---------------- 密钥管理 ----------------
 
 _SECRET_KEY_FILE = os.path.join(os.path.dirname(__file__), ".secret_key")
@@ -141,7 +139,6 @@ def ensure_admin_account(conn) -> None:
     if row:
         return
 
-    from database import get_db
 
     password = os.getenv("ADMIN_PASSWORD", "")
     source = "环境变量 ADMIN_PASSWORD"

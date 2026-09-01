@@ -1,12 +1,17 @@
 """
 OpenInterview - 安全模块单元测试
 """
-import sys, os
+import os
+import sys
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from security import (
-    hash_password, verify_password, issue_session_token,
-    validate_session_token, RateLimiter,
+    RateLimiter,
+    hash_password,
+    issue_session_token,
+    validate_session_token,
+    verify_password,
 )
 
 

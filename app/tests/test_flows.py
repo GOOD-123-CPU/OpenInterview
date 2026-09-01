@@ -10,7 +10,6 @@ import uuid
 
 import pytest
 
-
 PERMISSION_MATRIX = [
     ("GET", "/api/candidates"),
     ("POST", "/api/positions"),

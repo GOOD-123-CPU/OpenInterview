@@ -12,8 +12,10 @@ from datetime import datetime
 from config import config
 from constants import InterviewStatus
 from database import get_db
+from prompt_registry import render_prompt
 from services.llm import chat_json
 from services.resume import extract_text_from_resume
+from services.webhook import EVENT_QUESTIONS_GENERATED, emit_event
 
 QUESTION_FORMAT_EXAMPLE = [
     {
@@ -35,25 +37,14 @@ def generate_questions(resume_content, position_name, requirements, responsibili
         resume_text = resume_text[:8000] + "…（简历过长已截断）"
     print(f"[questions] 简历文本长度: {len(resume_text)}")
 
-    system_prompt = (
-        "你是一名严谨、专业的技术面试官。你的出题原则：\n"
-        "1. 问题必须与岗位要求和候选人简历高度相关，绝不问简历中完全无依据的泛泛问题；\n"
-        "2. 题目结构均衡：约 40% 技术深度、25% 项目复盘、20% 系统设计、15% 行为素质；\n"
-        "3. 难度递进：前 1/3 基础题，中间 1/3 进阶题，最后 1/3 挑战题；\n"
-        "4. 每题给出可操作的评分标准，分值合计 100 分；\n"
-        "5. 严格只输出 JSON。"
-    )
-    user_prompt = (
-        f"岗位名称: {position_name}\n"
-        f"岗位要求: {requirements or '未提供'}\n"
-        f"岗位职责: {responsibilities or '未提供'}\n"
-        f"候选人简历: {resume_text}\n\n"
-        f"请生成 {config.QUESTION_COUNT} 个面试问题。"
-        f"JSON 格式参考 {json.dumps(QUESTION_FORMAT_EXAMPLE, ensure_ascii=False)}。\n"
-        '返回 JSON 对象：{"questions": [上述结构数组]}。'
-        "dimension 取值：技术深度/项目复盘/系统设计/行为素质；"
-        "difficulty 取值：easy/medium/hard；"
-        "question_type 取值：technical/project/design/behavior。"
+    system_prompt, user_prompt = render_prompt(
+        "question_generation",
+        position_name=position_name,
+        requirements=requirements or "未提供",
+        responsibilities=responsibilities or "未提供",
+        resume_text=resume_text,
+        question_count=config.QUESTION_COUNT,
+        format_example=json.dumps(QUESTION_FORMAT_EXAMPLE, ensure_ascii=False),
     )
 
     result = chat_json(system_prompt, user_prompt)
@@ -159,5 +150,12 @@ def process_pending_interviews() -> None:
             questions = generate_questions(candidate[3], position[1], position[2], position[3])
             save_questions(interview_id, questions)
             print(f"[questions] 面试 {interview_id} 已生成 {len(questions)} 个问题")
+
+            emit_event(EVENT_QUESTIONS_GENERATED, {
+                "interview_id": interview_id,
+                "candidate": candidate[1],
+                "position": position[1],
+                "question_count": len(questions),
+            })
         except Exception as e:
             print(f"[questions] 处理面试 {interview_id} 失败: {e}")

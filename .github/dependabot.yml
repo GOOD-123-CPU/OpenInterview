@@ -1,0 +1,18 @@
+version: 2
+updates:
+  # Python 依赖每月检查
+  - package-ecosystem: "pip"
+    directory: "/app"
+    schedule:
+      interval: "monthly"
+    labels: ["dependencies"]
+    commit-message:
+      prefix: "chore"
+      include: "scope"
+
+  # GitHub Actions 每周检查
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    labels: ["dependencies", "ci"]
