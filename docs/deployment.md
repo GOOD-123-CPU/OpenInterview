@@ -28,7 +28,7 @@
 ## Docker 部署（推荐）
 
 ```bash
-git clone https://github.com/<you>/OpenInterview.git
+git clone https://github.com/GOOD-123-CPU/OpenInterview.git
 cd OpenInterview
 
 # 1. 配置
@@ -52,7 +52,7 @@ docker compose logs -f app   # 观察初始管理员口令（若未设置 ADMIN_
 sudo apt install -y python3.11 python3.11-venv ffmpeg fonts-noto-cjk
 
 # 2. 应用部署
-cd /opt && git clone https://github.com/<you>/OpenInterview.git
+cd /opt && git clone https://github.com/GOOD-123-CPU/OpenInterview.git
 cd OpenInterview/app
 python3.11 -m venv venv && source venv/bin/activate
 pip install -r requirements.txt

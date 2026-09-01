@@ -4,7 +4,7 @@
 
 **AI 驱动的自动化面试系统 — 出题 · 语音面试 · 深度评估报告，全流程无人值守**
 
-[![CI](https://img.shields.io/badge/CI-GitHub_Actions-blue?logo=githubactions)](https://github.com/<you>/OpenInterview/actions)
+[![CI](https://img.shields.io/badge/CI-GitHub_Actions-blue?logo=githubactions)](https://github.com/GOOD-123-CPU/OpenInterview/actions)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/Python-3.10%2B-blue?logo=python&logoColor=white)](https://www.python.org/)
 [![Flask](https://img.shields.io/badge/Flask-3.x-000?logo=flask)](https://flask.palletsprojects.com/)
@@ -50,7 +50,7 @@
 ### Docker（推荐）
 
 ```bash
-git clone https://github.com/<you>/OpenInterview.git
+git clone https://github.com/GOOD-123-CPU/OpenInterview.git
 cd OpenInterview
 
 cp app/.env.example app/.env      # 填入 OPENAI_API_KEY、ADMIN_PASSWORD
@@ -182,7 +182,7 @@ Why OpenInterview? Screening candidates is slow and inconsistent. OpenInterview 
 ### Quick Start
 
 ```bash
-git clone https://github.com/<you>/OpenInterview.git && cd OpenInterview
+git clone https://github.com/GOOD-123-CPU/OpenInterview.git && cd OpenInterview
 cp app/.env.example app/.env    # fill in OPENAI_API_KEY & ADMIN_PASSWORD
 docker compose up --build -d
 # Admin console: http://localhost:8000/static/login.html

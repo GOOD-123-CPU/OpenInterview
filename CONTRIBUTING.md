@@ -10,7 +10,7 @@
 
 ```bash
 # 1. 克隆
-git clone https://github.com/<you>/OpenInterview.git
+git clone https://github.com/GOOD-123-CPU/OpenInterview.git
 cd OpenInterview
 
 # 2. 虚拟环境（Python 3.10+）
