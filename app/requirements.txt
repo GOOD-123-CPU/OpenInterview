@@ -1,6 +1,6 @@
 # ===== 核心依赖 =====
 schedule==1.2.2
-openai==1.75.0
+openai==3.6.0
 pypdf==6.1.0
 Jinja2==3.1.6
 weasyprint==65.1
