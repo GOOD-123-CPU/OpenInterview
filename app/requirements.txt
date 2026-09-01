@@ -11,7 +11,7 @@ PyYAML==6.0.3
 
 # ===== 语音识别（重依赖，按需安装）=====
 # GPU 环境请先参照 https://pytorch.org 安装匹配 CUDA 的 torch
-torch==2.7.0
+torch==2.13.0
 openai-whisper==20240930
 
 # ===== 测试 =====
