@@ -4,11 +4,11 @@
 
 **AI 驱动的自动化面试系统 — 出题 · 语音面试 · 深度评估报告，全流程无人值守**
 
-[![CI](https://img.shields.io/badge/CI-GitHub_Actions-blue?logo=githubactions)](https://github.com/GOOD-123-CPU/OpenInterview/actions)
+[![CI](https://github.com/GOOD-123-CPU/OpenInterview/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/GOOD-123-CPU/OpenInterview/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/Python-3.10%2B-blue?logo=python&logoColor=white)](https://www.python.org/)
 [![Flask](https://img.shields.io/badge/Flask-3.x-000?logo=flask)](https://flask.palletsprojects.com/)
-[![Tests](https://img.shields.io/badge/Tests-44%20passing-brightgreen)](#运行测试)
+[测试源码](app/tests/)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-ff69b4.svg)](CONTRIBUTING.md)
 
 [功能](#-功能特性) · [快速开始](#-快速开始) · [文档](#-文档) · [参与贡献](#-参与贡献) · [路线图](ROADMAP.md)
