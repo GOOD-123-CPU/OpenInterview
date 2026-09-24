@@ -4,6 +4,7 @@ A lease is a short, renewable ownership record for (task_type, entity_id).
 Claims run inside BEGIN IMMEDIATE so two processes cannot both win the same
 entity. Expired leases are reclaimable after a worker crash.
 """
+
 import time
 import uuid
 
