@@ -129,3 +129,41 @@ class TestPromptRegistry:
 
         with pytest.raises(KeyError):
             get_prompt("no_such_prompt")
+
+
+class TestTaskLeases:
+    def setup_method(self):
+        from database import get_db
+
+        conn = get_db()
+        conn.execute("DELETE FROM task_leases")
+        conn.commit()
+        conn.close()
+
+    def test_only_one_worker_can_claim_same_entity(self):
+        from services.task_lease import claim_task
+
+        assert claim_task("question_generation", 101, "worker-a", now=1000)
+        assert not claim_task("question_generation", 101, "worker-b", now=1001)
+
+    def test_only_owner_can_release(self):
+        from services.task_lease import claim_task, release_task
+
+        assert claim_task("report_generation", 202, "worker-a", now=1000)
+        assert not release_task("report_generation", 202, "worker-b")
+        assert release_task("report_generation", 202, "worker-a")
+
+    def test_expired_lease_can_be_reclaimed(self):
+        from services.task_lease import claim_task
+
+        assert claim_task("question_generation", 303, "worker-a", lease_seconds=10, now=1000)
+        assert not claim_task("question_generation", 303, "worker-b", lease_seconds=10, now=1009)
+        assert claim_task("question_generation", 303, "worker-b", lease_seconds=10, now=1010)
+
+    def test_active_lease_can_be_renewed(self):
+        from services.task_lease import claim_task, renew_task
+
+        assert claim_task("report_generation", 404, "worker-a", lease_seconds=10, now=1000)
+        assert renew_task("report_generation", 404, "worker-a", lease_seconds=20, now=1005)
+        assert not claim_task("report_generation", 404, "worker-b", lease_seconds=10, now=1011)
+        assert claim_task("report_generation", 404, "worker-b", lease_seconds=10, now=1025)

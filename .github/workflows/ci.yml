@@ -57,3 +57,4 @@ jobs:
           ADMIN_PASSWORD: test-admin-pw
           OPENAI_API_KEY: dummy-key-for-ci
         run: pytest tests/ -v --tb=short
+

@@ -42,7 +42,7 @@
 │  prompt_registry.py(prompts.yaml)            database.py     │
 └─────────────────────────────────────────────┬───────────────┘
                                               ▼
-                              SQLite（WAL）+ 定时 worker ×2
+                              SQLite（WAL + task lease）+ 定时 worker ×2
 ```
 
 ## 分层架构
@@ -125,9 +125,10 @@ question_worker.py ─┐                      ┌─ status=0 → 生成题目 
 report_worker.py  ──┘                      └─ status=3 → LLM 评估 → PDF → status=4 → webhook
 ```
 
-- **幂等性**：worker 只按状态字段扫描，重复执行不会产生重复数据
-- **故障隔离**：单场面试失败只记日志，不影响同批其他场次
-- **优雅停机**：KeyboardInterrupt 退出；因幂等，kill -9 也安全
+- **多 worker 互斥**：状态扫描只负责发现候选任务；真正执行前通过 SQLite `task_leases` 表在 `BEGIN IMMEDIATE` 事务中原子认领 `(task_type, entity_id)`，同一面试同一任务同时只有一个 worker 获得 lease。
+- **崩溃恢复**：lease 带过期时间；进程异常退出后，其他 worker 可在 lease 到期后重新认领。正常成功或失败都会主动释放 lease。
+- **故障隔离**：单场面试失败只记日志并释放 lease，不影响同批其他场次；下一轮可重试。
+- **优雅停机**：KeyboardInterrupt 正常退出；kill -9 不会永久锁死任务，但正在执行的外部 LLM/PDF 调用可能在 lease 到期后被重新执行，因此外部副作用仍应保持幂等。
 
 ## LLM 集成层
 

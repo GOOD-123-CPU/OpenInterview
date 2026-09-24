@@ -63,12 +63,23 @@ CREATE TABLE IF NOT EXISTS settings (
     value TEXT
 );
 
+-- 后台任务租约：避免多个 worker 同时处理同一业务实体。
+-- lease_until 使用 Unix 时间戳；崩溃后过期租约可被其他 worker 接管。
+CREATE TABLE IF NOT EXISTS task_leases (
+    task_type TEXT NOT NULL,
+    entity_id INTEGER NOT NULL,
+    owner TEXT NOT NULL,
+    lease_until INTEGER NOT NULL,
+    PRIMARY KEY (task_type, entity_id)
+);
+
 -- 常用查询索引
 CREATE INDEX IF NOT EXISTS idx_interviews_token ON interviews(token);
 CREATE INDEX IF NOT EXISTS idx_interviews_status ON interviews(status);
 CREATE INDEX IF NOT EXISTS idx_interviews_candidate ON interviews(candidate_id);
 CREATE INDEX IF NOT EXISTS idx_questions_interview ON interview_questions(interview_id);
 CREATE INDEX IF NOT EXISTS idx_candidates_position ON candidates(position_id);
+CREATE INDEX IF NOT EXISTS idx_task_leases_expiry ON task_leases(lease_until);
 """
 
 # v1 → v2 轻量迁移：为旧库补充新列（SQLite 无 ADD COLUMN IF NOT EXISTS）

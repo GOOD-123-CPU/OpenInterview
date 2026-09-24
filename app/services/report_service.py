@@ -18,6 +18,7 @@ from database import get_db
 from prompt_registry import render_prompt
 from services.llm import chat_json
 from services.radar import render_radar_svg
+from services.task_lease import claim_task, new_owner_id, release_task
 from services.webhook import EVENT_REPORT_GENERATED, emit_event
 
 VALID_DIMENSIONS = {"technical": "技术深度", "project": "项目复盘", "design": "系统设计", "behavior": "行为素质"}
@@ -282,9 +283,13 @@ def process_pending_reports() -> None:
         return
 
     print(f"[report] 找到 {len(interviews)} 场待评估面试")
+    owner = new_owner_id("report")
 
     for interview in interviews:
         interview_id = interview["id"]
+        if not claim_task("report_generation", interview_id, owner):
+            print(f"[report] 面试 {interview_id} 已被其他 worker 认领，跳过")
+            continue
         try:
             conn = get_db(row_factory=True)
             candidate = conn.execute(
@@ -331,3 +336,5 @@ def process_pending_reports() -> None:
             })
         except Exception as e:
             print(f"[report] 处理面试 {interview_id} 失败: {e}")
+        finally:
+            release_task("report_generation", interview_id, owner)
