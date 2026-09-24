@@ -10,7 +10,6 @@ import uuid
 
 from database import get_db
 
-
 DEFAULT_LEASE_SECONDS = 15 * 60
 
 
