@@ -58,35 +58,3 @@ jobs:
           OPENAI_API_KEY: dummy-key-for-ci
         run: pytest tests/ -v --tb=short
 
-
-  format-task-lease:
-    if: github.event_name == 'pull_request' && github.head_ref == 'feat/worker-task-leases'
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          ref: ${{ github.head_ref }}
-
-      - uses: actions/setup-python@v7
-        with:
-          python-version: "3.11"
-
-      - name: Apply repository Ruff import formatting
-        working-directory: app
-        run: |
-          pip install ruff
-          ruff check services/task_lease.py --fix
-
-      - name: Commit Ruff-generated change when needed
-        run: |
-          if git diff --quiet -- app/services/task_lease.py; then
-            echo "Ruff reports no generated change."
-            exit 0
-          fi
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add app/services/task_lease.py
-          git commit -m "style: apply repository ruff formatting"
-          git push origin HEAD:${{ github.head_ref }}
