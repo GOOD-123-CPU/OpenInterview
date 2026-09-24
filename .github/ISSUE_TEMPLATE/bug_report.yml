@@ -1,0 +1,82 @@
+name: "🐛 Bug report / 问题报告"
+description: Report a reproducible defect in OpenInterview
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping improve OpenInterview. Please remove secrets, personal data,
+        resumes, audio, and other sensitive content before attaching logs or examples.
+
+  - type: textarea
+    id: summary
+    attributes:
+      label: Problem summary
+      description: What happened, and what did you expect instead?
+      placeholder: A concise description of the failure.
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Start ...
+        2. Submit ...
+        3. Observe ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Affected area
+      options:
+        - Resume parsing
+        - Question generation
+        - Interview / speech pipeline
+        - Report generation
+        - Scheduled worker / task lease
+        - Web UI
+        - Deployment / Docker
+        - Other
+    validations:
+      required: true
+
+  - type: input
+    id: revision
+    attributes:
+      label: Version / commit
+      placeholder: vX.Y.Z or commit SHA
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: OS, Python version, browser, deployment mode, and relevant dependency versions.
+      render: shell
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Sanitized logs
+      description: Remove API keys, tokens, resumes, audio transcripts, names, email addresses, and other personal data.
+      render: shell
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Pre-submission checks
+      options:
+        - label: I searched existing issues for the same problem.
+          required: true
+        - label: I removed secrets and personal/sensitive data from this report.
+          required: true
