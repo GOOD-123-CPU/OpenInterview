@@ -42,7 +42,7 @@
 | 📊 | **深度评估报告** | 逐题引用式点评 · 雷达图 · 优势/短板 · 追问方向 · 排版精良的 PDF |
 | 📈 | **数据看板** | 招聘漏斗统计 · 近 7 天趋势 · 状态分布 |
 | 🔔 | **Webhook 事件** | HMAC 签名推送，对接企业微信/钉钉/Slack/n8n 自动化 |
-| 🧪 | **质量保障** | 44 个 pytest 用例 · CI 矩阵 · pre-commit · ruff · detect-secrets |
+| 🧪 | **质量保障** | 62 个 pytest 用例 · CI 矩阵 · pre-commit · ruff · detect-secrets |
 | 🐳 | **一键部署** | Docker Compose 开箱即用，支持任意 OpenAI 兼容模型 |
 
 ## 🚀 快速开始
@@ -94,13 +94,13 @@ python tasks/report_worker.py                     # 报告 worker
 
 `Flask 3` · `SQLite (WAL)` · `Vue 3 (CDN 免构建)` · `OpenAI 兼容 LLM（GLM/OpenAI/DeepSeek/Kimi…）` · `OpenAI Whisper` · `WeasyPrint` · `schedule` · `pytest`
 
-**架构亮点**：提示词 YAML 版本化管理 · LLM 指数退避重试 · 请求级 request-id 追踪 · 状态机驱动的幂等 worker · 纯 Python SVG 雷达图。详见[架构文档](docs/architecture.md)。
+**架构亮点**：提示词 YAML 版本化管理 · LLM 指数退避重试 · 请求级 request-id 追踪 · SQLite `BEGIN IMMEDIATE` 原子 task lease（多 worker 互斥、lease 过期恢复）· 业务状态机与执行所有权分离 · 纯 Python SVG 雷达图。详见[架构文档](docs/architecture.md)。
 
 ## 🧪 运行测试
 
 ```bash
 cd app
-ADMIN_PASSWORD=test-admin-pw pytest tests/ -v    # 44 个用例，无需 GPU / API Key
+ADMIN_PASSWORD=test-admin-pw pytest tests/ -v    # 62 个用例，无需 GPU / API Key
 ```
 
 ## 🤝 参与贡献
@@ -176,7 +176,8 @@ Why OpenInterview? Screening candidates is slow and inconsistent. OpenInterview 
 - **🎙 Voice interviews** — tokenized links, in-browser recording, TTS question reading, start-time locking
 - **📊 Deep evaluation reports** — transcript-grounded per-question scoring, radar chart, next-round follow-ups
 - **🔔 Webhooks** — HMAC-signed events for IM bots / n8n / Zapier automation
-- **🧪 Quality** — 44 pytest tests, CI matrix, pre-commit, ruff, secret scanning
+- **🧪 Quality** — 62 pytest tests, Python 3.10/3.11/3.12 CI matrix, pre-commit, ruff, secret scanning
+- **⚙️ Concurrent-worker safety** — atomic SQLite task leases prevent duplicate question/report generation across worker processes and allow expired-lease recovery after crashes
 - **🐳 One-command deploy** — Docker Compose; works with any OpenAI-compatible LLM
 
 ### Quick Start
