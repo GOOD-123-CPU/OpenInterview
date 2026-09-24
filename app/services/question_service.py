@@ -15,6 +15,7 @@ from database import get_db
 from prompt_registry import render_prompt
 from services.llm import chat_json
 from services.resume import extract_text_from_resume
+from services.task_lease import claim_task, new_owner_id, release_task
 from services.webhook import EVENT_QUESTIONS_GENERATED, emit_event
 
 QUESTION_FORMAT_EXAMPLE = [
@@ -60,20 +61,17 @@ def generate_questions(resume_content, position_name, requirements, responsibili
         if not isinstance(q, dict) or not q.get("question"):
             continue
         qtype = str(q.get("question_type", "technical")).lower()
+        difficulty = str(q.get("difficulty", "medium")).lower()
         normalized.append(
             {
                 "question": str(q["question"]).strip(),
                 "score_standard": str(q.get("score_standard", "综合评估，满分100分")).strip(),
                 "dimension": str(q.get("dimension", "综合")).strip(),
-                "difficulty": qtype if qtype in valid_difficulty else str(q.get("difficulty", "medium")).lower() if q.get("difficulty") else "medium",
+                "difficulty": difficulty if difficulty in valid_difficulty else "medium",
                 "question_type": qtype if qtype in valid_types else "technical",
                 "followup": str(q.get("followup", "")).strip(),
             }
         )
-    # difficulty 字段规范化修正（上面表达式可能被 question_type 污染）
-    for q in normalized:
-        if q["difficulty"] not in valid_difficulty:
-            q["difficulty"] = "medium"
     if not normalized:
         raise ValueError("LLM 返回的问题均缺少 question 字段")
     return normalized
@@ -124,8 +122,12 @@ def process_pending_interviews() -> None:
         return
 
     print(f"[questions] 找到 {len(pending)} 个待处理的面试")
+    owner = new_owner_id("question")
 
     for interview_id, candidate_id in pending:
+        if not claim_task("question_generation", interview_id, owner):
+            print(f"[questions] 面试 {interview_id} 已被其他 worker 认领，跳过")
+            continue
         try:
             conn = get_db()
             candidate = conn.execute(
@@ -159,3 +161,5 @@ def process_pending_interviews() -> None:
             })
         except Exception as e:
             print(f"[questions] 处理面试 {interview_id} 失败: {e}")
+        finally:
+            release_task("question_generation", interview_id, owner)
